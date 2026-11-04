@@ -1,0 +1,137 @@
+name: Sync upstream releases
+
+# Mirrors stable upstream releases (vX.Y.Z) of the upstream image as
+# wrapper images under ghcr.io/unraid-apps/APPNAME. Runs every 6 hours,
+# on demand, and whenever the wrapper itself changes.
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      force_tag:
+        description: "Rebuild this upstream tag even if it is up to date (e.g. v0.3.0)"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - entrypoint.sh
+      - scripts/**
+      - .github/workflows/sync-upstream.yml
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+
+env:
+  UPSTREAM_IMAGE: ghcr.io/TODO-owner/TODO-image
+  UPSTREAM_REPO: TODO-owner/TODO-image
+  OUR_IMAGE: ghcr.io/${{ github.repository }}
+  # Oldest upstream release the wrapper is known to work with. Older tags are
+  # ignored on purpose; raise this if upstream changes its image layout.
+  MIN_UPSTREAM_VERSION: v1.0.0   # TODO: oldest upstream release the wrapper supports
+  MAX_BUILDS_PER_RUN: "10"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute wrapper revision
+        id: rev
+        run: |
+          rev="$(cat Dockerfile entrypoint.sh | sha256sum | cut -c1-12)"
+          echo "wrapper_revision=$rev" >> "$GITHUB_OUTPUT"
+          echo "wrapper revision: $rev"
+
+      - name: Decide what to build
+        id: plan
+        env:
+          WRAPPER_REVISION: ${{ steps.rev.outputs.wrapper_revision }}
+          FORCE_TAG: ${{ github.event.inputs.force_tag }}
+        run: python3 scripts/upstream-versions.py
+
+      - name: Nothing to do
+        if: steps.plan.outputs.build == '[]'
+        run: echo "All mirrored tags are up to date."
+
+      - uses: docker/setup-qemu-action@v3
+        if: steps.plan.outputs.build != '[]'
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.plan.outputs.build != '[]'
+
+      - uses: docker/login-action@v3
+        if: steps.plan.outputs.build != '[]'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build, test and push each tag
+        if: steps.plan.outputs.build != '[]'
+        env:
+          BUILD: ${{ steps.plan.outputs.build }}
+          LATEST: ${{ steps.plan.outputs.latest }}
+          DIGESTS: ${{ steps.plan.outputs.digests }}
+          WRAPPER_REVISION: ${{ steps.rev.outputs.wrapper_revision }}
+        run: |
+          set -euo pipefail
+          for tag in $(echo "$BUILD" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))'); do
+            echo "::group::$tag"
+            upstream_digest="$(echo "$DIGESTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$tag")"
+
+            # amd64 image for the smoke test, pinned to the digest we just resolved
+            docker buildx build --load --platform linux/amd64 \
+              --build-arg "UPSTREAM_IMAGE=$UPSTREAM_IMAGE" --build-arg "UPSTREAM_TAG=$tag" --build-arg "WRAPPER_REVISION=$WRAPPER_REVISION" \
+              -t "wrapper-smoke:$tag" .
+            bash scripts/smoke-test.sh "wrapper-smoke:$tag"
+
+            tags=(-t "$OUR_IMAGE:$tag")
+            if [ "$tag" = "$LATEST" ]; then tags+=(-t "$OUR_IMAGE:latest"); fi
+            docker buildx build --push --platform linux/amd64,linux/arm64 \
+              --build-arg "UPSTREAM_IMAGE=$UPSTREAM_IMAGE" --build-arg "UPSTREAM_TAG=$tag" --build-arg "WRAPPER_REVISION=$WRAPPER_REVISION" \
+              --annotation "index:org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+              --annotation "index:org.opencontainers.image.version=$tag" \
+              --metadata-file "/tmp/meta-$tag.json" \
+              "${tags[@]}" .
+            our_digest="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["containerimage.digest"])' "/tmp/meta-$tag.json")"
+            python3 scripts/record-version.py "$tag" "$upstream_digest" "$WRAPPER_REVISION" "$our_digest"
+            echo "::endgroup::"
+          done
+
+      - name: Commit version record
+        if: steps.plan.outputs.build != '[]'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add versions.json VERSIONS.md
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "chore: mirror upstream $(echo '${{ steps.plan.outputs.build }}' | tr -d '[]"' ) (latest: ${{ steps.plan.outputs.latest }})"
+          git push
+
+      - name: Open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Upstream sync failed ($(date -u +%Y-%m-%d))"
+          existing="$(gh issue list --state open --search "in:title \"Upstream sync failed\"" --json number --jq '.[0].number')"
+          body="The scheduled sync of ${UPSTREAM_IMAGE} failed. See the run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Likely causes: upstream changed its image layout (entrypoint path, data dir) so the smoke test failed, or GHCR was unreachable. Nothing was published for the failing tag."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --label "sync-failure" --body "$body" || gh issue create --title "$title" --body "$body"
+          fi

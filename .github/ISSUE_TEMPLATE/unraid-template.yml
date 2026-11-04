@@ -1,0 +1,29 @@
+name: Unraid template or container problem
+description: The Community Applications template, the container start or the image mirror misbehaves.
+labels: [unraid]
+body:
+  - type: input
+    id: unraid
+    attributes:
+      label: Unraid version
+      placeholder: "7.1.4"
+    validations:
+      required: true
+  - type: input
+    id: image
+    attributes:
+      label: Image tag
+      placeholder: "ghcr.io/unraid-apps/APPNAME:latest"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Container log (secrets removed)
+      render: text

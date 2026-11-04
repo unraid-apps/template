@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Upstream application issues
+    url: https://github.com/TODO-upstream-owner/TODO-upstream-repo/issues
+    about: Bugs and feature requests for the application itself belong upstream. Only template and container problems here.

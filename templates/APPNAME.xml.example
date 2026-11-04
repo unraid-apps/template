@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!--
+  Unraid Docker template skeleton. Copy to templates/<appname>.xml, replace
+  every APPNAME/TODO, delete the comments you do not need, then run
+  scripts/validate-template.py on it.
+
+  Field reference (dockerMan + Community Applications):
+    Name          Container name in Unraid. Letters, digits, - and _ only.
+    Repository    image:tag. CA checks that it exists.
+    Registry      Page of the image registry (Docker Hub or GHCR package page).
+    Network       bridge | host | none | <custom network name>. Tailscale needs bridge or custom.
+    Support       Where users ask for help: GitHub issues or an Unraid forum thread.
+    Project       Upstream project page.
+    Overview      Shown in CA as the description. Plain text; &#xD; = line break.
+    Category      Space separated CA categories, each ending with a colon, e.g.
+                  "AI: Tools:Utilities Network:Web MediaServer:Video".
+    WebUI         http://[IP]:[PORT:3001]/  - [PORT:x] is replaced by the host port mapped to container port x.
+    TemplateURL   Raw URL of THIS file on the default branch. CA uses it to refresh the template.
+    Icon          Raw URL of a PNG in this repo (square, 256-512 px).
+    ExtraParams   Extra `docker run` flags (two dashes each), e.g. add-host=host.docker.internal:host-gateway and hostname=APPNAME
+    Requires      Free text shown before install, e.g. "Requires the Tailscale plugin".
+
+  Config attributes:
+    Type          Port | Path | Variable | Label | Device
+    Display       always | advanced | always-hide | advanced-hide
+    Required      true | false
+    Mask          true (password field) | false
+    Mode          Port: tcp|udp   Path: rw|ro (optionally ,slave or ,shared)   Variable: ""
+    Default       Value shown in the form; the element text is the current value.
+-->
+<Container version="2">
+  <Name>APPNAME</Name>
+  <Repository>ghcr.io/unraid-apps/APPNAME:latest</Repository>
+  <Registry>https://github.com/unraid-apps/APPNAME/pkgs/container/APPNAME</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/unraid-apps/APPNAME/issues</Support>
+  <Project>https://github.com/TODO-upstream-owner/TODO-upstream-repo</Project>
+  <Overview>TODO: What the app does in two or three sentences, written for someone browsing Community Applications.&#xD;
+&#xD;
+TODO: What this template or wrapper adds (if anything) and the one thing the user must know on first start.&#xD;
+&#xD;
+TODO: Security note if the app has no authentication or is single-user.</Overview>
+  <Category>Tools:Utilities</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/unraid-apps/APPNAME/main/templates/APPNAME.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/unraid-apps/APPNAME/main/APPNAME-icon.png</Icon>
+  <ExtraParams>--hostname=APPNAME</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+
+  <!-- Unraid 7 per-container Tailscale. Pre-filled but off: the user flips
+       "Use Tailscale". Serve = HTTPS inside the tailnet only; funnel = public.
+       Delete this block if the app should not be reached remotely. -->
+  <TailscaleEnabled>false</TailscaleEnabled>
+  <TailscaleHostname>APPNAME</TailscaleHostname>
+  <TailscaleIsExitNode>false</TailscaleIsExitNode>
+  <TailscaleSSH>false</TailscaleSSH>
+  <TailscaleUserspaceNetworking>true</TailscaleUserspaceNetworking>
+  <TailscaleLANAccess>false</TailscaleLANAccess>
+  <TailscaleServe>serve</TailscaleServe>
+  <TailscaleServePort>8080</TailscaleServePort>
+  <TailscaleWebUI>https://[hostname][magicdns]/</TailscaleWebUI>
+
+  <!-- One Port config per published container port. Target = container port. -->
+  <Config Name="WebUI port" Target="8080" Default="8080" Mode="tcp" Description="Host port for the web interface. The container listens on 8080." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+
+  <!-- One Path config per persistent directory. Keep appdata under /mnt/user/appdata/<appname>. -->
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/APPNAME" Mode="rw" Description="Persistent application data." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/APPNAME</Config>
+
+  <!-- Variables the average user touches: Display="always". Everything else: Display="advanced". -->
+  <Config Name="TZ" Target="TZ" Default="Europe/Berlin" Mode="" Description="Time zone." Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
+  <Config Name="TODO_SECRET" Target="TODO_SECRET" Default="" Mode="" Description="TODO: secrets get Mask=true. Say whether leaving it empty is allowed." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="TODO_ADVANCED" Target="TODO_ADVANCED" Default="" Mode="" Description="TODO: optional tuning, hidden under Show more settings." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+</Container>

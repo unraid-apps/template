@@ -1,0 +1,22 @@
+name: Validate templates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate ca_profile.xml and templates
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(ca_profile.xml templates/*.xml)
+          # --allow-placeholders is for this starter repo only: remove it in your app repo.
+          python3 scripts/validate-template.py --check-urls --allow-placeholders "${files[@]}"

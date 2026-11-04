@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Repository profile shown in Community Applications. Must stay in the repo
+  root and must have a non-empty <Profile>. Replace every APPNAME/TODO.
+  Optional elements: <Forum> (Unraid forum support thread), <DonateLink>,
+  <DonateText>.
+-->
+<CommunityApplications>
+  <Profile>
+    TODO: two or three sentences about this repository: what kind of apps it
+    contains, how close they stay to upstream, where support happens.
+    Maintained by Hardskiller.
+  </Profile>
+  <Icon>https://github.com/Hardskiller.png</Icon>
+  <WebPage>https://github.com/Hardskiller</WebPage>
+</CommunityApplications>
