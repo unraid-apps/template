@@ -13,7 +13,7 @@ docker run -d --name "$NAME" -p "127.0.0.1::$PORT" "$IMAGE" >/dev/null
 host_port="$(docker port "$NAME" "$PORT/tcp" | head -1 | sed 's/.*://')"
 deadline=$((SECONDS + 120))
 until curl -fsS "http://127.0.0.1:${host_port}${HEALTH_PATH}" >/dev/null 2>&1; do
-  docker ps -q --no-trunc --filter "name=^/${NAME}$" | grep -q . || { echo "container exited"; docker logs "$NAME" | tail -40; exit 1; }
+  docker ps -q --no-trunc --filter "name=^/${NAME}$" | grep -c . >/dev/null || { echo "container exited"; docker logs "$NAME" | tail -40; exit 1; }
   [ "$SECONDS" -lt "$deadline" ] || { echo "no answer on $HEALTH_PATH within 120s"; docker logs "$NAME" | tail -40; exit 1; }
   sleep 2
 done

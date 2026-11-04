@@ -111,7 +111,8 @@ jobs:
           done
 
       - name: Commit version record
-        if: steps.plan.outputs.build != '[]'
+        # always(): record the tags that did get published even if a later one failed
+        if: always() && steps.plan.outputs.build != '[]'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
